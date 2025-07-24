@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  mankai-sync:
+    build: .
+    ports:
+      - 3000:3000
+    volumes:
+      - ./db.sqlite3:/app/prisma/db.sqlite3
+    environment:
+      - JWT_ACCESS_SECRET=secret_access
+      - JWT_REFRESH_SECRET=secret_refresh
+    restart: unless-stopped

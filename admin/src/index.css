@@ -1,0 +1,83 @@
+body,
+html {
+  padding: 0;
+  margin: 0;
+}
+
+:root {
+  /* Primary colors */
+  --bg-primary: #242424;
+  --bg-secondary: #333;
+
+  /* Input colors */
+  --input-bg: #2a2a2a;
+  --input-bg-focus: #242424;
+
+  /* Border colors */
+  --border-primary: #222;
+  --border-secondary: rgba(255, 255, 255, 0.1);
+
+  /* Text colors */
+  --text-primary: rgba(255, 255, 255, 0.87);
+
+  /* Shadow colors */
+  --shadow: rgba(31, 38, 135, 0.15);
+
+  font-family: sans-serif;
+  line-height: 1;
+  color-scheme: light dark;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+}
+input {
+  border: 1px solid var(--border-primary);
+  background: var(--input-bg);
+  padding: 0.7rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: border 0.2s;
+}
+
+input:focus {
+  background: var(--input-bg-focus);
+  border: 1.5px solid #6366f1;
+  outline: none;
+}
+
+button {
+  padding: 0.8rem 0;
+  background-color: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+button:hover {
+  opacity: 0.8;
+}
+
+.container {
+  background: var(--bg-secondary);
+  box-shadow: 0 8px 32px 0 var(--shadow);
+  padding: 2.5rem 2rem;
+  border-radius: 1.25rem;
+  border: 1px solid var(--border-secondary);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Override colors for light mode */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f3f4f6;
+    --input-bg: #f9f9f9;
+    --input-bg-focus: #fff;
+    --border-primary: #d1d5db;
+    --border-secondary: rgba(31, 41, 55, 0.08);
+    --text-primary: #000;
+    --shadow: rgba(31, 41, 55, 0.07);
+  }
+}

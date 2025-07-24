@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./db.sqlite3"
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  email    String  @unique
+  password String
+  isAdmin  Boolean @default(false)
+
+  records Record[]
+  saveds  Saved[]
+}
+
+model Record {
+  mangaId  String
+  pluginId String
+  userId   Int
+  user     User   @relation(fields: [userId], references: [id])
+
+  datetime     DateTime
+  chapterId    String?
+  chapterTitle String?
+  page         Int
+
+  @@id([mangaId, pluginId, userId])
+}
+
+model Saved {
+  mangaId  String
+  pluginId String
+  userId   Int
+  user     User   @relation(fields: [userId], references: [id])
+
+  datetime DateTime
+  updates  Boolean
+
+  @@id([mangaId, pluginId, userId])
+}

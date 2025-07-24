@@ -1,0 +1,33 @@
+{
+  "name": "mankai-sync-api",
+  "version": "1.0.0",
+  "license": "MIT",
+  "exports": "./dist/index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "pkgroll --minify --clean-dist --target=node20 && cp node_modules/uWebSockets.js/*.node dist/",
+    "build:docker": "pkgroll --minify --clean-dist --target=node22 && cp node_modules/uWebSockets.js/uws_linux_arm64_127.node dist/"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.1.0",
+    "prisma": "^6.12.0",
+    "pkgroll": "^2.14.3",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "live-directory": "^3.0.3",
+    "@prisma/client": "6.12.0",
+    "bcryptjs": "^3.0.2",
+    "hyper-express": "^6.17.3",
+    "jsonwebtoken": "^9.0.2",
+    "pino": "^9.7.0",
+    "pino-pretty": "^13.0.0"
+  }
+}

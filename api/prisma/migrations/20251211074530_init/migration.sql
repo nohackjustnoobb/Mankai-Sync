@@ -15,6 +15,7 @@ CREATE TABLE "Record" (
     "chapterId" TEXT,
     "chapterTitle" TEXT,
     "page" INTEGER NOT NULL,
+    "updatedAt" DATETIME NOT NULL,
 
     PRIMARY KEY ("mangaId", "pluginId", "userId"),
     CONSTRAINT "Record_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
@@ -27,6 +28,8 @@ CREATE TABLE "Saved" (
     "userId" INTEGER NOT NULL,
     "datetime" DATETIME NOT NULL,
     "updates" BOOLEAN NOT NULL,
+    "latestChapter" TEXT NOT NULL,
+    "updatedAt" DATETIME NOT NULL,
 
     PRIMARY KEY ("mangaId", "pluginId", "userId"),
     CONSTRAINT "Saved_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE

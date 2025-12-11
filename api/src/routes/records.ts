@@ -33,7 +33,7 @@ function setupRecordsEndpoints(server: HyperExpress.Server) {
       }
 
       const whereClause: any = { userId };
-      if (ts !== null) whereClause.datetime = { gte: new Date(ts) };
+      if (ts !== null) whereClause.updatedAt = { gte: new Date(ts) };
 
       const records = await prisma.record.findMany({
         where: whereClause,

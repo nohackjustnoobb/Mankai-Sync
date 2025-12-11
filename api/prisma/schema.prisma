@@ -27,6 +27,7 @@ model Record {
   chapterId    String?
   chapterTitle String?
   page         Int
+  updatedAt    DateTime @updatedAt
 
   @@id([mangaId, pluginId, userId])
 }
@@ -37,8 +38,10 @@ model Saved {
   userId   Int
   user     User   @relation(fields: [userId], references: [id])
 
-  datetime DateTime
-  updates  Boolean
+  datetime      DateTime
+  updates       Boolean
+  latestChapter String
+  updatedAt     DateTime @updatedAt
 
   @@id([mangaId, pluginId, userId])
 }

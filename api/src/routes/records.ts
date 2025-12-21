@@ -52,6 +52,7 @@ function setupRecordsEndpoints(server: HyperExpress.Server) {
 
       response.status(200).json(records);
     } catch (error) {
+      console.error(error);
       response.status(400).json({ error: "Failed to retrieve record items" });
     }
   });
@@ -68,75 +69,109 @@ function setupRecordsEndpoints(server: HyperExpress.Server) {
         return response.status(400).json({ error: "Invalid record items" });
       }
 
-      const upsertPromises: Promise<Record>[] = records.map(async (record) => {
-        const { mangaId, pluginId, datetime, chapterId, chapterTitle, page } =
-          record;
+      // Validate all items first
+      for (const record of records) {
+        const { mangaId, pluginId, datetime, page } = record;
         if (
           mangaId === undefined ||
           pluginId === undefined ||
           datetime === undefined ||
           page === undefined
         ) {
-          return Promise.reject(new Error("Missing required fields"));
+          return response
+            .status(400)
+            .json({ error: "Missing required fields" });
         }
 
         const date = new Date(datetime);
         if (isNaN(date.getTime())) {
-          return Promise.reject(new Error("Invalid datetime format"));
+          return response
+            .status(400)
+            .json({ error: "Invalid datetime format" });
         }
+      }
 
-        const storedRecord = await prisma.record.findUnique({
-          where: {
-            mangaId_pluginId_userId: {
-              userId,
-              mangaId,
-              pluginId,
-            },
-          },
-        });
+      // Fetch all relevant records in a single query
+      const keys = records.map((r) => ({
+        mangaId: r.mangaId,
+        pluginId: r.pluginId,
+      }));
 
-        if (!storedRecord) {
-          return prisma.record.create({
-            data: {
-              userId,
-              mangaId,
-              pluginId,
-              datetime: date,
-              chapterId,
-              chapterTitle,
-              page,
-            },
+      const storedRecords = await prisma.record.findMany({
+        where: {
+          userId,
+          OR: keys,
+        },
+      });
+
+      // Create a map for quick lookup
+      const storedMap = new Map(
+        storedRecords.map((r) => [`${r.mangaId}|${r.pluginId}`, r])
+      );
+
+      // Determine which items need to be created vs updated
+      const toCreate = [];
+      const toUpdate = [];
+
+      for (const record of records) {
+        const key = `${record.mangaId}|${record.pluginId}`;
+        const stored = storedMap.get(key);
+        const date = new Date(record.datetime);
+
+        if (!stored) {
+          toCreate.push({
+            userId,
+            mangaId: record.mangaId,
+            pluginId: record.pluginId,
+            datetime: date,
+            chapterId: record.chapterId,
+            chapterTitle: record.chapterTitle,
+            page: record.page,
           });
-        }
-
-        if (date.getTime() > storedRecord.datetime.getTime()) {
-          return prisma.record.update({
+        } else if (date.getTime() > stored.datetime.getTime()) {
+          toUpdate.push({
             where: {
               mangaId_pluginId_userId: {
                 userId,
-                mangaId,
-                pluginId,
+                mangaId: record.mangaId,
+                pluginId: record.pluginId,
               },
             },
             data: {
               datetime: date,
-              chapterId,
-              chapterTitle,
-              page,
+              chapterId: record.chapterId,
+              chapterTitle: record.chapterTitle,
+              page: record.page,
             },
           });
-        } else {
-          return storedRecord;
         }
-      });
+      }
 
-      const results = await Promise.all(upsertPromises);
+      // Batch create and update in a transaction
+      const operations = [
+        ...toCreate.map((data) => prisma.record.create({ data })),
+        ...toUpdate.map((update) => prisma.record.update(update)),
+      ];
+
+      const results =
+        operations.length > 0 ? await prisma.$transaction(operations) : [];
+
+      // Build final result set
+      const resultMap = new Map(
+        results.map((r) => [`${r.mangaId}|${r.pluginId}`, r])
+      );
+
+      const allResults = records.map((r) => {
+        const key = `${r.mangaId}|${r.pluginId}`;
+        return resultMap.get(key) || storedMap.get(key);
+      });
 
       response.status(200).json({
         message: "Record items processed successfully",
-        records: results,
+        records: allResults,
       });
     } catch (error) {
+      console.error(error);
       response.status(400).json({ error: "Failed to record item" });
     }
   });

@@ -70,6 +70,7 @@ function verifyAccessToken(token: string): TokenPayload | null {
 
     return decoded;
   } catch (error) {
+    console.error(error);
     return null;
   }
 }
@@ -92,6 +93,7 @@ async function verifyRefreshToken(
 
     return { payload: decoded, user };
   } catch (error) {
+    console.error(error);
     return { payload: null, user: null };
   }
 }
@@ -191,6 +193,7 @@ function setupAuthEndpoints(server: HyperExpress.Server) {
         ...tokens,
       });
     } catch (error) {
+      console.error(error);
       response.status(400).json({ error: "User login failed" });
     }
   });
@@ -232,6 +235,7 @@ function setupAuthEndpoints(server: HyperExpress.Server) {
         accessToken: tokens,
       });
     } catch (error) {
+      console.error(error);
       response.status(400).json({ error: "Token refresh failed" });
     }
   });

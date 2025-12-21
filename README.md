@@ -26,3 +26,15 @@ Mankai Sync is a sync server for the Mankai app, providing both a backend API an
    ```
    sudo docker-compose down
    ```
+
+### Creating an Admin User
+
+To create the first admin user:
+
+1. Set `BYPASS_IS_ADMIN_CHECK=true` in your environment variables (`.env` file or `docker-compose.yml`).
+
+2. Send a POST request to `/api/admin/users` to create a new user.
+
+3. Manually update the `isAdmin` field to `1` in the database for that user.
+
+4. Remove or set `BYPASS_IS_ADMIN_CHECK=false` after creating the admin user.

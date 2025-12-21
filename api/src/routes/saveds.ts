@@ -51,6 +51,7 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
 
       response.status(200).json(saveds);
     } catch (error) {
+      console.error(error);
       response.status(400).json({ error: "Failed to retrieve saved items" });
     }
   });
@@ -67,68 +68,105 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
         return response.status(400).json({ error: "Invalid saved items" });
       }
 
-      const updatePromises: Promise<Saved | null>[] = saveds.map(
-        async (saved) => {
-          const { mangaId, pluginId, datetime, updates, latestChapter } = saved;
-          if (
-            mangaId === undefined ||
-            pluginId === undefined ||
-            datetime === undefined ||
-            updates === undefined ||
-            latestChapter === undefined
-          ) {
-            return Promise.reject(new Error("Missing required fields"));
-          }
+      // Validate all items first
+      for (const saved of saveds) {
+        const { mangaId, pluginId, datetime, updates, latestChapter } = saved;
+        if (
+          mangaId === undefined ||
+          pluginId === undefined ||
+          datetime === undefined ||
+          updates === undefined ||
+          latestChapter === undefined
+        ) {
+          return response
+            .status(400)
+            .json({ error: "Missing required fields" });
+        }
 
-          const date = new Date(datetime);
-          if (isNaN(date.getTime())) {
-            return Promise.reject(new Error("Invalid datetime format"));
-          }
+        const date = new Date(datetime);
+        if (isNaN(date.getTime())) {
+          return response
+            .status(400)
+            .json({ error: "Invalid datetime format" });
+        }
+      }
 
-          const storedSaved = await prisma.saved.findUnique({
+      // Fetch all relevant saved items in a single query
+      const keys = saveds.map((s) => ({
+        mangaId: s.mangaId,
+        pluginId: s.pluginId,
+      }));
+
+      const storedSaveds = await prisma.saved.findMany({
+        where: {
+          userId,
+          OR: keys,
+        },
+      });
+
+      // Create a map for quick lookup
+      const storedMap = new Map(
+        storedSaveds.map((s) => [`${s.mangaId}|${s.pluginId}`, s])
+      );
+
+      // Determine which items need to be updated
+      const toUpdate = [];
+      for (const saved of saveds) {
+        const key = `${saved.mangaId}|${saved.pluginId}`;
+        const stored = storedMap.get(key);
+
+        if (!stored) {
+          // Ignore items that don't exist in the database
+          continue;
+        }
+
+        const date = new Date(saved.datetime);
+        if (date.getTime() > stored.datetime.getTime()) {
+          toUpdate.push({
             where: {
               mangaId_pluginId_userId: {
                 userId,
-                mangaId,
-                pluginId,
+                mangaId: saved.mangaId,
+                pluginId: saved.pluginId,
               },
             },
+            data: {
+              datetime: date,
+              updates: saved.updates,
+              latestChapter: saved.latestChapter,
+            },
           });
-
-          if (!storedSaved) {
-            // Ignore items that don't exist in the database
-            return null;
-          }
-
-          if (date.getTime() > storedSaved.datetime.getTime()) {
-            return prisma.saved.update({
-              where: {
-                mangaId_pluginId_userId: {
-                  userId,
-                  mangaId,
-                  pluginId,
-                },
-              },
-              data: {
-                datetime: date,
-                updates,
-                latestChapter,
-              },
-            });
-          } else {
-            return storedSaved;
-          }
         }
-      );
+      }
 
-      const results = await Promise.all(updatePromises);
-      const updatedSaveds = results.filter((saved) => saved !== null);
+      // Batch update all items in a transaction
+      const results =
+        toUpdate.length > 0
+          ? await prisma.$transaction(
+              toUpdate.map((update) => prisma.saved.update(update))
+            )
+          : [];
+
+      // Combine updated and unchanged items
+      const allResults = saveds
+        .map((s) => {
+          const key = `${s.mangaId}|${s.pluginId}`;
+          const stored = storedMap.get(key);
+          if (!stored) return null;
+
+          const updated = results.find(
+            (r) => r.mangaId === s.mangaId && r.pluginId === s.pluginId
+          );
+          return updated || stored;
+        })
+        .filter((s) => s !== null);
 
       response.status(200).json({
         message: "Saved items processed successfully",
-        saveds: updatedSaveds,
+        saveds: allResults,
       });
     } catch (error) {
+      console.error(error);
       response.status(400).json({ error: "Failed to save item" });
     }
   });
@@ -168,33 +206,72 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
         }
       }
 
-      // Delete all existing saved items for this user
-      await prisma.saved.deleteMany({
+      // Fetch all existing saved items for this user
+      const existingItems = await prisma.saved.findMany({
         where: { userId },
+        select: {
+          mangaId: true,
+          pluginId: true,
+        },
       });
 
-      // Create all new saved items
-      const createPromises = saveds.map((saved) => {
-        const { mangaId, pluginId, datetime, updates, latestChapter } = saved;
-        return prisma.saved.create({
-          data: {
+      // Create sets for efficient comparison
+      const requestKeys = new Set(
+        saveds.map((s) => `${s.mangaId}|${s.pluginId}`)
+      );
+      const existingKeys = new Set(
+        existingItems.map((s) => `${s.mangaId}|${s.pluginId}`)
+      );
+
+      // Find items to delete (in DB but not in request)
+      const toDelete = existingItems.filter(
+        (item) => !requestKeys.has(`${item.mangaId}|${item.pluginId}`)
+      );
+
+      // Find items to create (in request but not in DB)
+      const toCreate = saveds.filter(
+        (item) => !existingKeys.has(`${item.mangaId}|${item.pluginId}`)
+      );
+
+      // Delete items not in request
+      if (toDelete.length > 0) {
+        await prisma.saved.deleteMany({
+          where: {
             userId,
-            mangaId,
-            pluginId,
-            datetime: new Date(datetime),
-            updates,
-            latestChapter,
+            OR: toDelete.map((item) => ({
+              mangaId: item.mangaId,
+              pluginId: item.pluginId,
+            })),
           },
         });
-      });
+      }
 
-      const results = await Promise.all(createPromises);
+      // Create new items
+      const created =
+        toCreate.length > 0
+          ? await prisma.$transaction(
+              toCreate.map((saved) =>
+                prisma.saved.create({
+                  data: {
+                    userId,
+                    mangaId: saved.mangaId,
+                    pluginId: saved.pluginId,
+                    datetime: new Date(saved.datetime),
+                    updates: saved.updates,
+                    latestChapter: saved.latestChapter,
+                  },
+                })
+              )
+            )
+          : [];
 
       response.status(200).json({
-        message: "Saved items replaced successfully",
-        saveds: results,
+        message: "Saved items synchronized successfully",
+        created: created.length,
+        deleted: toDelete.length,
       });
     } catch (error) {
+      console.error(error);
       response.status(400).json({ error: "Failed to save item" });
     }
   });
@@ -230,6 +307,7 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
 
       response.status(200).json({ hash });
     } catch (error) {
+      console.error(error);
       response.status(400).json({ error: "Failed to generate hash" });
     }
   });

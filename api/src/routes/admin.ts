@@ -39,6 +39,7 @@ function setupAdminRoutes(server: HyperExpress.Server) {
 
       response.status(200).json(users);
     } catch (error) {
+      console.error(error);
       response.status(400).json({ error: "Failed to retrieve users" });
     }
   });
@@ -109,6 +110,7 @@ function setupAdminRoutes(server: HyperExpress.Server) {
         ...tokens,
       });
     } catch (error) {
+      console.error(error);
       response.status(400).json({ error: "User registration failed" });
     }
   });
@@ -137,6 +139,7 @@ function setupAdminRoutes(server: HyperExpress.Server) {
 
       response.status(200).json({ message: "User deleted successfully" });
     } catch (error) {
+      console.error(error);
       response.status(400).json({ error: "Failed to delete user" });
     }
   });

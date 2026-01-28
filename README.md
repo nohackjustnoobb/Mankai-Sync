@@ -12,7 +12,7 @@ Mankai Sync is a sync server for the Mankai app, providing both a backend API an
 
 > **Important:**
 >
-> For security, edit the `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` values in your `docker-compose.yml` file before deploying or running in production.
+> For security, edit the `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` values in your `docker-compose.yml` file before deploying or running in production.
 
 1. Build and start all services:
 
@@ -27,14 +27,6 @@ Mankai Sync is a sync server for the Mankai app, providing both a backend API an
    sudo docker-compose down
    ```
 
-### Creating an Admin User
+## Security
 
-To create the first admin user:
-
-1. Set `BYPASS_IS_ADMIN_CHECK=true` in your environment variables (`.env` file or `docker-compose.yml`).
-
-2. Send a POST request to `/api/admin/users` to create a new user.
-
-3. Manually update the `isAdmin` field to `1` in the database for that user.
-
-4. Remove or set `BYPASS_IS_ADMIN_CHECK=false` after creating the admin user.
+For enhanced security, it is recommended to use a reverse proxy (such as Nginx) to handle incoming traffic. Configure the proxy to only forward requests destined for `/api`, ensuring that the admin interface and admin API remain inaccessible from the public internet.

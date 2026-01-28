@@ -6,6 +6,8 @@ import { setupUserEndpoints } from "./routes/user";
 import { setupSavedsEndpoints } from "./routes/saveds";
 import { setupRecordsEndpoints } from "./routes/records";
 import { setupAdminRoutes } from "./routes/admin";
+import prisma from "./utils/prisma";
+import { hashPassword } from "./routes/auth";
 
 const server = new HyperExpress.Server();
 
@@ -22,15 +24,15 @@ server.use("/api", (request, response, next) => {
   return requireAuth(request, response, next);
 });
 
-const BYPASS_IS_ADMIN_CHECK =
-  process.env.BYPASS_IS_ADMIN_CHECK === "true" ? true : false;
-server.use("/api/admin", (request, response, next) => {
-  const payload = request.payload;
-  if (!payload || (!payload.isAdmin && !BYPASS_IS_ADMIN_CHECK)) {
-    return response.status(403).json({ error: "Forbidden" });
-  }
+server.use("/admin/api", (request, response, next) => {
+  return requireAuth(request, response, () => {
+    const payload = request.payload;
+    if (!payload || !payload.isAdmin) {
+      return response.status(403).json({ error: "Forbidden" });
+    }
 
-  next();
+    next();
+  });
 });
 
 // Serve static files from the "static" directory
@@ -77,18 +79,42 @@ setupSavedsEndpoints(server);
 setupRecordsEndpoints(server);
 setupAdminRoutes(server);
 
+async function setupAdminUser() {
+  const email = process.env.ADMIN_EMAIL;
+  const password = process.env.ADMIN_PASSWORD;
+
+  if (email && password) {
+    logger.info("Setting up admin user...");
+    const passwordHash = await hashPassword(password);
+    await prisma.user.upsert({
+      where: { email },
+      update: {
+        password: passwordHash,
+        isAdmin: true,
+      },
+      create: {
+        email,
+        password: passwordHash,
+        isAdmin: true,
+      },
+    });
+    logger.info("Admin user setup completed.");
+  }
+}
+
 // Start the server on the specified port
 const PORT: number = Number(process.env.PORT) || 3000;
-server
-  .listen(PORT)
+
+setupAdminUser()
+  .then(() => server.listen(PORT))
   .then(() =>
     logger.info(
-      `${colors.cyan}Server is running on ${colors.magenta}${PORT}${colors.reset}`
-    )
+      `${colors.cyan}Server is running on ${colors.magenta}${PORT}${colors.reset}`,
+    ),
   )
   .catch((error) =>
     logger.error(
       { error: error.message },
-      `${colors.red}Failed to start server on port ${PORT}${colors.reset}`
-    )
+      `${colors.red}Failed to start server on port ${PORT}${colors.reset}`,
+    ),
   );

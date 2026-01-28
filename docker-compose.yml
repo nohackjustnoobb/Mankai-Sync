@@ -10,4 +10,6 @@ services:
     environment:
       - JWT_ACCESS_SECRET=secret_access
       - JWT_REFRESH_SECRET=secret_refresh
+      - ADMIN_EMAIL=admin@example.com
+      - ADMIN_PASSWORD=admin_password
     restart: unless-stopped

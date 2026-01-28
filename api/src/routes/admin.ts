@@ -9,7 +9,7 @@ import {
 
 function setupAdminRoutes(server: HyperExpress.Server) {
   // Get all users
-  server.get("/api/admin/users", async (request, response) => {
+  server.get("/admin/api/users", async (request, response) => {
     try {
       const offsetParam = request.query?.os;
       const limitParam = request.query?.lm;
@@ -45,7 +45,7 @@ function setupAdminRoutes(server: HyperExpress.Server) {
   });
 
   // User Registration
-  server.post("/api/admin/users", async (request, response) => {
+  server.post("/admin/api/users", async (request, response) => {
     try {
       const { email, password } = await request.json();
 
@@ -116,7 +116,7 @@ function setupAdminRoutes(server: HyperExpress.Server) {
   });
 
   // User Deletion
-  server.delete("/api/admin/user/:id", async (request, response) => {
+  server.delete("/admin/api/user/:id", async (request, response) => {
     try {
       const userId = Number(request.params.id);
       if (isNaN(userId) || userId <= 0 || userId === request.payload?.userId) {

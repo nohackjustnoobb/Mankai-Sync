@@ -8,14 +8,14 @@ interface User {
 
 async function getUsers(page: number): Promise<User[]> {
   const resp = await authService.get(
-    `/api/admin/users?offset=${(page - 1) * 50}&limit=50`
+    `/admin/api/users?offset=${(page - 1) * 50}&limit=50`,
   );
 
   return resp;
 }
 
 async function createUser(email: string, password: string): Promise<User> {
-  const resp = await authService.post("/api/admin/users", {
+  const resp = await authService.post("/admin/api/users", {
     email,
     password,
   });
@@ -24,7 +24,7 @@ async function createUser(email: string, password: string): Promise<User> {
 }
 
 async function deleteUser(userId: string) {
-  const resp = await authService.delete(`/api/admin/user/${userId}`);
+  const resp = await authService.delete(`/admin/api/user/${userId}`);
 
   return resp;
 }

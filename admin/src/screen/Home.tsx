@@ -17,7 +17,9 @@ const Home = () => {
     try {
       setLoading(true);
       setError(null);
+
       const fetchedUsers = await getUsers(pageNum);
+
       setUsers(fetchedUsers);
       setPage(pageNum);
     } catch (err) {
@@ -37,10 +39,13 @@ const Home = () => {
     try {
       setCreating(true);
       setError(null);
+
       await createUser(newUserEmail.trim(), newUserPassword);
+
       setNewUserEmail("");
       setNewUserPassword("");
       setShowCreateForm(false);
+
       // Reload users to show the new user
       await loadUsers(page);
     } catch (err) {
@@ -69,126 +74,149 @@ const Home = () => {
     loadUsers();
   }, []);
 
+  const getInitials = (email: string) => {
+    return email.substring(0, 1).toUpperCase();
+  };
+
   return (
     <div className="home-container">
-      <div className="home-content container">
-        <h2 className="home-title">User Management</h2>
+      <div className="home-content fade-in">
+        <header className="dashboard-header">
+          <div>
+            <h2 className="home-title text-gradient">User Management</h2>
+            <p style={{ margin: 0, opacity: 0.6 }}>
+              Manage access and permissions
+            </p>
+          </div>
 
-        {error && <div className="error-message">{error}</div>}
+          <div className="header-actions">
+            <button
+              className="btn-secondary"
+              onClick={() => loadUsers(page)}
+              disabled={loading}
+              title="Refresh Users"
+            >
+              Refresh
+            </button>
+            <button
+              className={showCreateForm ? "btn-secondary" : "btn"}
+              onClick={() => setShowCreateForm(!showCreateForm)}
+            >
+              {showCreateForm ? "Close Form" : "Create User"}
+            </button>
+            <button
+              className="btn-logout"
+              onClick={() => authService.logout()}
+              title="Logout"
+            >
+              Sign out
+            </button>
+          </div>
+        </header>
 
-        <div className="user-actions">
-          <button
-            className="btn btn-primary"
-            onClick={() => setShowCreateForm(!showCreateForm)}
-          >
-            {showCreateForm ? "Cancel" : "Create New User"}
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={() => loadUsers(page)}
-            disabled={loading}
-          >
-            {loading ? "Refreshing..." : "Refresh Users"}
-          </button>
-          <button
-            className="btn btn-danger"
-            onClick={() => authService.logout()}
-          >
-            Logout
-          </button>
-        </div>
-
-        {showCreateForm && (
-          <form className="create-user-form" onSubmit={handleCreateUser}>
-            <h3>Create New User</h3>
-            <div className="form-group">
-              <label htmlFor="email">Email:</label>
-              <input
-                type="email"
-                id="email"
-                value={newUserEmail}
-                onChange={(e) => setNewUserEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="password">Password:</label>
-              <input
-                type="password"
-                id="password"
-                value={newUserPassword}
-                onChange={(e) => setNewUserPassword(e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-actions">
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={creating}
-              >
-                {creating ? "Creating..." : "Create User"}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setShowCreateForm(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-
-        {loading && page === 1 ? (
-          <div className="loading">Loading users...</div>
-        ) : (
-          <div className="users-section">
-            <div className="users-header">
-              <h3>Users (Page {page})</h3>
-              <div className="pagination">
-                <button
-                  className="btn btn-small"
-                  onClick={() => loadUsers(page - 1)}
-                  disabled={page <= 1 || loading}
-                >
-                  Previous
-                </button>
-                <span className="page-info">Page {page}</span>
-                <button
-                  className="btn btn-small"
-                  onClick={() => loadUsers(page + 1)}
-                  disabled={loading || users.length < 50}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-
-            {users.length === 0 ? (
-              <div className="no-users">No users found</div>
-            ) : (
-              <div className="users-list">
-                {users.map((user) => (
-                  <div key={user.id} className="user-item">
-                    <div className="user-info">
-                      <div className="user-email">{user.email}</div>
-                      <div className="user-role">
-                        {user.isAdmin ? "Admin" : "User"}
-                      </div>
-                    </div>
-                    <button
-                      className="btn btn-danger btn-small"
-                      onClick={() => handleDeleteUser(user.id, user.email)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+        {error && (
+          <div className="error-banner bounce-in">
+            <span>⚠️</span> {error}
           </div>
         )}
+
+        {showCreateForm && (
+          <div className="create-user-section glass-panel slide-down">
+            <form className="create-form-inner" onSubmit={handleCreateUser}>
+              <div className="create-form-header">
+                <h3>Create New User</h3>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="email">Email Address</label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="password">Password</label>
+                  <input
+                    type="password"
+                    id="password"
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="btn" disabled={creating}>
+                    {creating ? "Creating..." : "Create User"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div className="users-section">
+          <div className="section-header">
+            <div className="section-title">All Users</div>
+            <div className="pagination">
+              <button
+                className="btn-secondary btn-small"
+                onClick={() => loadUsers(page - 1)}
+                disabled={page <= 1 || loading}
+              >
+                ← Prev
+              </button>
+              <span className="page-info">{page}</span>
+              <button
+                className="btn-secondary btn-small"
+                onClick={() => loadUsers(page + 1)}
+                disabled={loading || users.length < 50}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+
+          {loading && page === 1 ? (
+            <div className="loading-state glass-panel">Loading users...</div>
+          ) : users.length === 0 ? (
+            <div className="empty-state glass-panel">
+              No users found. Create one to get started.
+            </div>
+          ) : (
+            <div className="user-grid">
+              {users.map((user) => (
+                <div key={user.id} className="user-card glass-panel">
+                  <div className="card-header">
+                    <div className="user-avatar">{getInitials(user.email)}</div>
+                    <span
+                      className={`user-role-badge ${user.isAdmin ? "admin" : ""}`}
+                    >
+                      {user.isAdmin ? "Admin" : "User"}
+                    </span>
+                  </div>
+
+                  <div className="user-details">
+                    <div className="user-email">{user.email}</div>
+                    <div className="user-id">ID: {user.id}</div>
+                  </div>
+
+                  <div className="card-actions">
+                    <button
+                      className="btn-delete"
+                      onClick={() => handleDeleteUser(user.id, user.email)}
+                    >
+                      Delete User
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

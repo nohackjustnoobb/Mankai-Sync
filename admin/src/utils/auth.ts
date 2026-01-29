@@ -96,7 +96,11 @@ class AuthService {
     };
 
     const resp = await fetch(url, { ...options, headers });
-    if (!resp.ok) throw new Error("Failed to fetch data");
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => null);
+      if (data?.error) throw new Error(data.error);
+      throw new Error("Failed to fetch data");
+    }
 
     return resp.json();
   }
@@ -119,7 +123,11 @@ class AuthService {
       ...options,
     });
 
-    if (!resp.ok) throw new Error("Failed to post data");
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => null);
+      if (data?.error) throw new Error(data.error);
+      throw new Error("Failed to post data");
+    }
 
     return resp.json();
   }
@@ -140,7 +148,11 @@ class AuthService {
       ...options,
     });
 
-    if (!resp.ok) throw new Error("Failed to delete data");
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => null);
+      if (data?.error) throw new Error(data.error);
+      throw new Error("Failed to delete data");
+    }
 
     return resp.json();
   }

@@ -6,10 +6,15 @@ interface User {
   isAdmin: boolean;
 }
 
-async function getUsers(page: number): Promise<User[]> {
-  const resp = await authService.get(
-    `/admin/api/users?offset=${(page - 1) * 50}&limit=50`,
-  );
+async function getUsers(page: number, search?: string): Promise<User[]> {
+  const query = new URLSearchParams({
+    os: ((page - 1) * 50).toString(),
+    lm: "50",
+  });
+
+  if (search) query.set("q", search);
+
+  const resp = await authService.get(`/admin/api/users?${query.toString()}`);
 
   return resp;
 }

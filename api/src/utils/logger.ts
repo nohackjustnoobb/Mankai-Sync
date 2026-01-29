@@ -37,7 +37,7 @@ const getClientIP = (request: HyperExpress.Request): string => {
 const logRequest: HyperExpress.MiddlewareHandler = (
   request,
   response,
-  next
+  next,
 ) => {
   const start = process.hrtime.bigint();
   const clientIP = getClientIP(request);
@@ -45,22 +45,19 @@ const logRequest: HyperExpress.MiddlewareHandler = (
   response.on("finish", () => {
     const end = process.hrtime.bigint();
     const durationMs = Number(end - start) / 1_000_000;
+    const status = response.statusCode || 200;
 
     const methodColor = colors.cyan;
     const urlColor = colors.blue;
     const statusColor =
-      response.statusCode >= 400
-        ? colors.red
-        : response.statusCode >= 300
-        ? colors.yellow
-        : colors.green;
+      status >= 400 ? colors.red : status >= 300 ? colors.yellow : colors.green;
     const ipColor = colors.magenta;
     const timeColor = colors.gray;
 
     const coloredMessage =
       `${methodColor}${request.method}${colors.reset} ` +
       `${urlColor}${request.url}${colors.reset} ` +
-      `${statusColor}${response.statusCode}${colors.reset} ` +
+      `${statusColor}${status}${colors.reset} ` +
       `${ipColor}${clientIP}${colors.reset} ` +
       `${timeColor}${durationMs.toFixed(2)}ms${colors.reset}`;
 

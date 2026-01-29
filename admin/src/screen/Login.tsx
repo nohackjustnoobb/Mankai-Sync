@@ -26,7 +26,7 @@ function Login() {
       <form className="login-form glass-panel fade-in" onSubmit={handleLogin}>
         <div className="login-header">
           <h2 className="login-title text-gradient">Mankai Sync</h2>
-          <p className="login-subtitle">Sign in to manage your configuration</p>
+          <p className="login-subtitle">Sign in to manage your users</p>
         </div>
 
         <div className="input-group">

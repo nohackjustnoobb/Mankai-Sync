@@ -13,21 +13,40 @@ const Home = () => {
   const [newUserPassword, setNewUserPassword] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const loadUsers = async (pageNum: number = 1) => {
-    try {
-      setLoading(true);
-      setError(null);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-      const fetchedUsers = await getUsers(pageNum);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
 
-      setUsers(fetchedUsers);
-      setPage(pageNum);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load users");
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  useEffect(() => {
+    loadUsers(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  const loadUsers = React.useCallback(
+    async (pageNum: number = 1) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const fetchedUsers = await getUsers(pageNum, debouncedSearch);
+
+        setUsers(fetchedUsers);
+        setPage(pageNum);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load users");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [debouncedSearch],
+  );
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +91,7 @@ const Home = () => {
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [loadUsers]);
 
   const getInitials = (email: string) => {
     return email.substring(0, 1).toUpperCase();
@@ -98,6 +117,7 @@ const Home = () => {
             >
               Refresh
             </button>
+
             <button
               className={showCreateForm ? "btn-secondary" : "btn"}
               onClick={() => setShowCreateForm(!showCreateForm)}
@@ -159,6 +179,15 @@ const Home = () => {
         )}
 
         <div className="users-section">
+          <div className="search-box">
+            <input
+              type="text"
+              placeholder="Search by email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="search-input"
+            />
+          </div>
           <div className="section-header">
             <div className="section-title">All Users</div>
             <div className="pagination">

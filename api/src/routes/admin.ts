@@ -13,8 +13,10 @@ function setupAdminRoutes(server: HyperExpress.Server) {
     try {
       const offsetParam = request.query?.os;
       const limitParam = request.query?.lm;
+      const searchParam = request.query?.q;
       let offset: number | undefined = undefined;
       let limit: number = 50;
+      let search: string | undefined = undefined;
 
       if (offsetParam) {
         const parsed = Number(offsetParam);
@@ -26,10 +28,18 @@ function setupAdminRoutes(server: HyperExpress.Server) {
         if (!isNaN(parsed) && parsed > 0) limit = parsed;
       }
 
+      if (searchParam && typeof searchParam === "string")
+        search = searchParam.trim();
+
       const users = await prisma.user.findMany({
         skip: offset,
         take: Math.min(limit, 50),
         orderBy: { id: "desc" },
+        where: search
+          ? {
+              email: { contains: search },
+            }
+          : undefined,
         select: {
           id: true,
           email: true,

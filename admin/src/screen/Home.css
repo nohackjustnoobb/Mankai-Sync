@@ -313,7 +313,7 @@
 
 @media (max-width: 768px) {
   .header-actions {
-    display: none; /* Simplify for mobile or move to menu */
+    display: column;
   }
 
   .form-row {

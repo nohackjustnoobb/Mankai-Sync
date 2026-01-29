@@ -87,9 +87,9 @@
   width: 100%;
   font-size: 1rem;
   padding: 1rem;
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 4px 20px rgba(241, 99, 99, 0.4);
 }
 
 .btn-login:hover {
-  box-shadow: 0 4px 25px rgba(99, 102, 241, 0.6);
+  box-shadow: 0 4px 25px rgba(241, 99, 99, 0.6);
 }

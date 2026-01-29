@@ -21,7 +21,7 @@ model Record {
   mangaId  String
   pluginId String
   userId   Int
-  user     User   @relation(fields: [userId], references: [id])
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   datetime     DateTime
   chapterId    String?
@@ -36,7 +36,7 @@ model Saved {
   mangaId  String
   pluginId String
   userId   Int
-  user     User   @relation(fields: [userId], references: [id])
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   datetime      DateTime
   updates       Boolean

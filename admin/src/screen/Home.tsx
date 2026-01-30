@@ -126,7 +126,10 @@ const Home = () => {
             </button>
             <button
               className="btn-logout"
-              onClick={() => authService.logout()}
+              onClick={() => {
+                if (confirm("Are you sure you want to sign out?"))
+                  authService.logout();
+              }}
               title="Logout"
             >
               Sign out

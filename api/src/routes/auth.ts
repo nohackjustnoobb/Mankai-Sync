@@ -38,7 +38,7 @@ function generateAccessToken(payload: TokenPayload): string {
     JWT_ACCESS_SECRET,
     {
       expiresIn: ACCESS_TOKEN_EXPIRES_IN as any,
-    }
+    },
   );
 }
 
@@ -76,7 +76,7 @@ function verifyAccessToken(token: string): TokenPayload | null {
 }
 
 async function verifyRefreshToken(
-  token: string
+  token: string,
 ): Promise<{ payload: TokenPayload | null; user: User | null }> {
   try {
     const decoded = jwt.verify(token, JWT_REFRESH_SECRET) as TokenPayload;
@@ -114,7 +114,7 @@ async function hashPassword(password: string): Promise<string> {
 
 async function verifyPassword(
   password: string,
-  hashedPassword: string
+  hashedPassword: string,
 ): Promise<boolean> {
   return await bcrypt.compare(password, hashedPassword);
 }
@@ -123,7 +123,7 @@ async function verifyPassword(
 const requireAuth: HyperExpress.MiddlewareHandler = (
   request,
   response,
-  next
+  next,
 ) => {
   const authHeader = request.headers.authorization;
 
@@ -149,10 +149,10 @@ function setupAuthEndpoints(server: HyperExpress.Server) {
   // User Login
   server.post("/api/auth/login", async (request, response) => {
     try {
-      const { email, password } = await request.json();
+      const { username, password } = await request.json();
 
       // Validation
-      if (!email || !password) {
+      if (!username || !password) {
         return response
           .status(400)
           .json({ error: "Email and password are required" });
@@ -160,7 +160,7 @@ function setupAuthEndpoints(server: HyperExpress.Server) {
 
       // Find user
       const user = await prisma.user.findUnique({
-        where: { email },
+        where: { email: username },
       });
 
       if (!user) {
@@ -247,5 +247,6 @@ export {
   hashPassword,
   validatePassword,
   generateTokens,
+  verifyPassword,
 };
 export type { TokenPayload };

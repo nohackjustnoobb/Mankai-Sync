@@ -53,7 +53,7 @@ class AuthService {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ username: email, password }),
     });
 
     if (!resp.ok) throw new Error("Login failed");

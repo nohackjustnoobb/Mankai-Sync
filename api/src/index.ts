@@ -1,7 +1,7 @@
 import HyperExpress from "hyper-express";
 import LiveDirectory from "live-directory";
 import { colors, logger, logRequest } from "./utils/logger";
-import { requireAuth, setupAuthEndpoints } from "./routes/auth";
+import { requireAuth, setupAuthEndpoints, verifyPassword } from "./routes/auth";
 import { setupUserEndpoints } from "./routes/user";
 import { setupSavedsEndpoints } from "./routes/saveds";
 import { setupRecordsEndpoints } from "./routes/records";
@@ -85,19 +85,37 @@ async function setupAdminUser() {
 
   if (email && password) {
     logger.info("Setting up admin user...");
-    const passwordHash = await hashPassword(password);
-    await prisma.user.upsert({
-      where: { email },
-      update: {
-        password: passwordHash,
-        isAdmin: true,
-      },
-      create: {
-        email,
-        password: passwordHash,
-        isAdmin: true,
-      },
-    });
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+
+    if (existingUser) {
+      const isMatch = await verifyPassword(password, existingUser.password);
+      if (!isMatch) {
+        const passwordHash = await hashPassword(password);
+        await prisma.user.update({
+          where: { email },
+          data: {
+            password: passwordHash,
+            isAdmin: true,
+          },
+        });
+      } else if (!existingUser.isAdmin) {
+        await prisma.user.update({
+          where: { email },
+          data: { isAdmin: true },
+        });
+      }
+    } else {
+      const passwordHash = await hashPassword(password);
+      await prisma.user.create({
+        data: {
+          email,
+          password: passwordHash,
+          isAdmin: true,
+        },
+      });
+    }
+
     logger.info("Admin user setup completed.");
   }
 }

@@ -13,7 +13,7 @@ WORKDIR /app
 COPY api/ ./
 RUN yarn install --frozen-lockfile
 
-RUN yarn build:docker
+RUN yarn build
 
 FROM node:22-alpine AS final
 

@@ -23,6 +23,7 @@ RUN apk --no-cache add gcompat
 
 COPY --from=api-build /app/dist ./dist
 COPY --from=api-build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=api-build /app/prisma ./prisma
 
 COPY --from=admin-build /app/dist ./static
 

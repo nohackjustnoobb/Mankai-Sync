@@ -1,6 +1,5 @@
 import HyperExpress from "hyper-express";
 import prisma from "../utils/prisma";
-import { Saved } from "@prisma/client";
 
 function setupSavedsEndpoints(server: HyperExpress.Server) {
   server.get("/api/saveds", async (request, response) => {
@@ -106,7 +105,7 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
 
       // Create a map for quick lookup
       const storedMap = new Map(
-        storedSaveds.map((s) => [`${s.mangaId}|${s.pluginId}`, s])
+        storedSaveds.map((s) => [`${s.mangaId}|${s.pluginId}`, s]),
       );
 
       // Determine which items need to be updated
@@ -143,7 +142,7 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
       const results =
         toUpdate.length > 0
           ? await prisma.$transaction(
-              toUpdate.map((update) => prisma.saved.update(update))
+              toUpdate.map((update) => prisma.saved.update(update)),
             )
           : [];
 
@@ -155,7 +154,7 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
           if (!stored) return null;
 
           const updated = results.find(
-            (r) => r.mangaId === s.mangaId && r.pluginId === s.pluginId
+            (r) => r.mangaId === s.mangaId && r.pluginId === s.pluginId,
           );
           return updated || stored;
         })
@@ -164,111 +163,6 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
       response.status(200).json({
         message: "Saved items processed successfully",
         saveds: allResults,
-      });
-    } catch (error) {
-      console.error(error);
-      response.status(400).json({ error: "Failed to save item" });
-    }
-  });
-
-  server.put("/api/saveds", async (request, response) => {
-    try {
-      const userId = request.payload?.userId;
-      if (!userId) {
-        return response.status(401).json({ error: "Unauthorized" });
-      }
-
-      const saveds = await request.json();
-      if (!saveds || !Array.isArray(saveds)) {
-        return response.status(400).json({ error: "Invalid saved items" });
-      }
-
-      // Validate all items first
-      for (const saved of saveds) {
-        const { mangaId, pluginId, datetime, updates, latestChapter } = saved;
-        if (
-          mangaId === undefined ||
-          pluginId === undefined ||
-          datetime === undefined ||
-          updates === undefined ||
-          latestChapter === undefined
-        ) {
-          return response
-            .status(400)
-            .json({ error: "Missing required fields" });
-        }
-
-        const date = new Date(datetime);
-        if (isNaN(date.getTime())) {
-          return response
-            .status(400)
-            .json({ error: "Invalid datetime format" });
-        }
-      }
-
-      // Fetch all existing saved items for this user
-      const existingItems = await prisma.saved.findMany({
-        where: { userId },
-        select: {
-          mangaId: true,
-          pluginId: true,
-        },
-      });
-
-      // Create sets for efficient comparison
-      const requestKeys = new Set(
-        saveds.map((s) => `${s.mangaId}|${s.pluginId}`)
-      );
-      const existingKeys = new Set(
-        existingItems.map((s) => `${s.mangaId}|${s.pluginId}`)
-      );
-
-      // Find items to delete (in DB but not in request)
-      const toDelete = existingItems.filter(
-        (item) => !requestKeys.has(`${item.mangaId}|${item.pluginId}`)
-      );
-
-      // Find items to create (in request but not in DB)
-      const toCreate = saveds.filter(
-        (item) => !existingKeys.has(`${item.mangaId}|${item.pluginId}`)
-      );
-
-      // Delete items not in request
-      if (toDelete.length > 0) {
-        await prisma.saved.deleteMany({
-          where: {
-            userId,
-            OR: toDelete.map((item) => ({
-              mangaId: item.mangaId,
-              pluginId: item.pluginId,
-            })),
-          },
-        });
-      }
-
-      // Create new items
-      const created =
-        toCreate.length > 0
-          ? await prisma.$transaction(
-              toCreate.map((saved) =>
-                prisma.saved.create({
-                  data: {
-                    userId,
-                    mangaId: saved.mangaId,
-                    pluginId: saved.pluginId,
-                    datetime: new Date(saved.datetime),
-                    updates: saved.updates,
-                    latestChapter: saved.latestChapter,
-                  },
-                })
-              )
-            )
-          : [];
-
-      response.status(200).json({
-        message: "Saved items synchronized successfully",
-        created: created.length,
-        deleted: toDelete.length,
       });
     } catch (error) {
       console.error(error);
@@ -309,6 +203,134 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
     } catch (error) {
       console.error(error);
       response.status(400).json({ error: "Failed to generate hash" });
+    }
+  });
+
+  server.post("/api/saveds/add", async (request, response) => {
+    try {
+      const userId = request.payload?.userId;
+      if (!userId) {
+        return response.status(401).json({ error: "Unauthorized" });
+      }
+
+      const items = await request.json();
+      if (!Array.isArray(items)) {
+        return response.status(400).json({ error: "Expected array of items" });
+      }
+
+      if (items.length === 0) {
+        return response.status(200).json({ message: "No items to add" });
+      }
+
+      const operations = [];
+      const keys = items.map((i) => ({
+        mangaId: i.mangaId,
+        pluginId: i.pluginId,
+      }));
+
+      // optimize by fetching existing ones first
+      const existingRecords = await prisma.saved.findMany({
+        where: {
+          userId,
+          OR: keys,
+        },
+      });
+
+      const existingMap = new Map(
+        existingRecords.map((r) => [`${r.mangaId}|${r.pluginId}`, r]),
+      );
+
+      for (const item of items) {
+        if (
+          !item.mangaId ||
+          !item.pluginId ||
+          !item.datetime ||
+          item.updates === undefined ||
+          item.latestChapter === undefined
+        ) {
+          continue; // Skip invalid items or return error? Skipping is safer for batch.
+        }
+
+        const key = `${item.mangaId}|${item.pluginId}`;
+        const existing = existingMap.get(key);
+        const newDate = new Date(item.datetime);
+
+        if (existing) {
+          if (newDate > existing.datetime) {
+            operations.push(
+              prisma.saved.update({
+                where: {
+                  mangaId_pluginId_userId: {
+                    mangaId: item.mangaId,
+                    pluginId: item.pluginId,
+                    userId,
+                  },
+                },
+                data: {
+                  datetime: newDate,
+                  updates: item.updates,
+                  latestChapter: item.latestChapter,
+                },
+              }),
+            );
+          }
+        } else {
+          operations.push(
+            prisma.saved.create({
+              data: {
+                mangaId: item.mangaId,
+                pluginId: item.pluginId,
+                userId,
+                datetime: newDate,
+                updates: item.updates,
+                latestChapter: item.latestChapter,
+              },
+            }),
+          );
+        }
+      }
+
+      if (operations.length > 0) {
+        await prisma.$transaction(operations);
+      }
+
+      response.status(200).json({ message: "Items processed successfully" });
+    } catch (error) {
+      console.error(error);
+      response.status(500).json({ error: "Failed to add items" });
+    }
+  });
+
+  server.post("/api/saveds/remove", async (request, response) => {
+    try {
+      const userId = request.payload?.userId;
+      if (!userId) {
+        return response.status(401).json({ error: "Unauthorized" });
+      }
+
+      const items = await request.json();
+      if (!Array.isArray(items)) {
+        return response.status(400).json({ error: "Expected array of items" });
+      }
+
+      const keys = items.map((i) => ({
+        mangaId: i.mangaId,
+        pluginId: i.pluginId,
+      }));
+
+      if (keys.length > 0) {
+        await prisma.saved.deleteMany({
+          where: {
+            userId,
+            OR: keys,
+          },
+        });
+      }
+
+      response.status(200).json({ message: "Items removed successfully" });
+    } catch (error) {
+      console.error(error);
+      response.status(500).json({ error: "Failed to remove items" });
     }
   });
 }

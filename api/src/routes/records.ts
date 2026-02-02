@@ -1,6 +1,5 @@
 import HyperExpress from "hyper-express";
 import prisma from "../utils/prisma";
-import { Record } from "@prisma/client";
 
 function setupRecordsEndpoints(server: HyperExpress.Server) {
   server.get("/api/records", async (request, response) => {
@@ -106,7 +105,7 @@ function setupRecordsEndpoints(server: HyperExpress.Server) {
 
       // Create a map for quick lookup
       const storedMap = new Map(
-        storedRecords.map((r) => [`${r.mangaId}|${r.pluginId}`, r])
+        storedRecords.map((r) => [`${r.mangaId}|${r.pluginId}`, r]),
       );
 
       // Determine which items need to be created vs updated
@@ -158,7 +157,7 @@ function setupRecordsEndpoints(server: HyperExpress.Server) {
 
       // Build final result set
       const resultMap = new Map(
-        results.map((r) => [`${r.mangaId}|${r.pluginId}`, r])
+        results.map((r) => [`${r.mangaId}|${r.pluginId}`, r]),
       );
 
       const allResults = records.map((r) => {

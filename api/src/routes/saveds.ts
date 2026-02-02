@@ -31,7 +31,7 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
         if (!isNaN(parsed) && parsed > 0) limit = parsed;
       }
 
-      const whereClause: any = { userId };
+      const whereClause: any = { userId, isDeleted: false };
       if (ts !== null) whereClause.updatedAt = { gte: new Date(ts) };
 
       const saveds = await prisma.saved.findMany({
@@ -52,6 +52,57 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
     } catch (error) {
       console.error(error);
       response.status(400).json({ error: "Failed to retrieve saved items" });
+    }
+  });
+
+  server.get("/api/saveds/deleted", async (request, response) => {
+    try {
+      const userId = request.payload?.userId;
+      if (!userId) {
+        return response.status(401).json({ error: "Unauthorized" });
+      }
+
+      const tsParam = request.query?.ts;
+      let ts: number | null = null;
+      if (tsParam) {
+        const parsed = Number(tsParam);
+        if (!isNaN(parsed)) ts = parsed;
+      }
+
+      const offsetParam = request.query?.os;
+      const limitParam = request.query?.lm;
+      let offset: number | undefined = undefined;
+      let limit: number = 50;
+
+      if (offsetParam) {
+        const parsed = Number(offsetParam);
+        if (!isNaN(parsed) && parsed >= 0) offset = parsed;
+      }
+
+      if (limitParam) {
+        const parsed = Number(limitParam);
+        if (!isNaN(parsed) && parsed > 0) limit = parsed;
+      }
+
+      const whereClause: any = { userId, isDeleted: true };
+      if (ts !== null) whereClause.updatedAt = { gte: new Date(ts) };
+
+      const saveds = await prisma.saved.findMany({
+        where: whereClause,
+        orderBy: { updatedAt: "desc" },
+        skip: offset,
+        take: Math.min(limit, 50),
+        select: {
+          mangaId: true,
+          pluginId: true,
+          datetime: true,
+        },
+      });
+
+      response.status(200).json(saveds);
+    } catch (error) {
+      console.error(error);
+      response.status(400).json({ error: "Failed to retrieve deleted items" });
     }
   });
 
@@ -133,6 +184,7 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
               datetime: date,
               updates: saved.updates,
               latestChapter: saved.latestChapter,
+              isDeleted: false,
             },
           });
         }
@@ -179,7 +231,7 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
 
       // Fetch all saved items for the user, sorted by primary key
       const saveds = await prisma.saved.findMany({
-        where: { userId },
+        where: { userId, isDeleted: false },
         orderBy: [{ mangaId: "asc" }, { pluginId: "asc" }],
         select: {
           mangaId: true,
@@ -270,6 +322,7 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
                   datetime: newDate,
                   updates: item.updates,
                   latestChapter: item.latestChapter,
+                  isDeleted: false,
                 },
               }),
             );
@@ -284,6 +337,7 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
                 datetime: newDate,
                 updates: item.updates,
                 latestChapter: item.latestChapter,
+                isDeleted: false,
               },
             }),
           );
@@ -319,10 +373,14 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
       }));
 
       if (keys.length > 0) {
-        await prisma.saved.deleteMany({
+        await prisma.saved.updateMany({
           where: {
             userId,
             OR: keys,
+          },
+          data: {
+            datetime: new Date(),
+            isDeleted: true,
           },
         });
       }

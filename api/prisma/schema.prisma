@@ -41,7 +41,10 @@ model Saved {
   datetime      DateTime
   updates       Boolean
   latestChapter String
-  updatedAt     DateTime @updatedAt
+
+  isDeleted Boolean @default(false)
+
+  updatedAt DateTime @updatedAt
 
   @@id([mangaId, pluginId, userId])
 }

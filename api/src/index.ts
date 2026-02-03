@@ -5,6 +5,7 @@ import { requireAuth, setupAuthEndpoints, verifyPassword } from "./routes/auth";
 import { setupUserEndpoints } from "./routes/user";
 import { setupSavedsEndpoints } from "./routes/saveds";
 import { setupRecordsEndpoints } from "./routes/records";
+import { setupSyncEndpoints } from "./routes/sync";
 import { setupAdminRoutes } from "./routes/admin";
 import prisma from "./utils/prisma";
 import { hashPassword } from "./routes/auth";
@@ -77,6 +78,7 @@ setupAuthEndpoints(server);
 setupUserEndpoints(server);
 setupSavedsEndpoints(server);
 setupRecordsEndpoints(server);
+setupSyncEndpoints(server);
 setupAdminRoutes(server);
 
 async function setupAdminUser() {

@@ -1,4 +1,5 @@
 import HyperExpress from "hyper-express";
+import { Prisma } from "@prisma/client";
 import prisma from "../utils/prisma";
 
 function setupRecordsEndpoints(server: HyperExpress.Server) {
@@ -93,13 +94,15 @@ function setupRecordsEndpoints(server: HyperExpress.Server) {
       const now = new Date();
       // Handle Records Mutation (Upsert with Raw SQL)
       if (records.length > 0) {
-        for (const record of records) {
-          try {
+        try {
+          const valueTuples = records.map((record: any) => {
             const date = new Date(record.datetime);
+            return Prisma.sql`(${record.mangaId}, ${record.pluginId}, ${userId}, ${date}, ${record.chapterId ?? null}, ${record.chapterTitle ?? null}, ${record.page}, ${now})`;
+          });
 
-            await prisma.$executeRaw`
+          const query = Prisma.sql`
               INSERT INTO "Record" ("mangaId", "pluginId", "userId", "datetime", "chapterId", "chapterTitle", "page", "updatedAt")
-              VALUES (${record.mangaId}, ${record.pluginId}, ${userId}, ${date}, ${record.chapterId}, ${record.chapterTitle}, ${record.page}, ${now})
+              VALUES ${Prisma.join(valueTuples)}
               ON CONFLICT ("mangaId", "pluginId", "userId")
               DO UPDATE SET
                 "datetime" = excluded."datetime",
@@ -109,9 +112,10 @@ function setupRecordsEndpoints(server: HyperExpress.Server) {
                 "updatedAt" = excluded."updatedAt"
               WHERE excluded."datetime" > "Record"."datetime"
             `;
-          } catch (e) {
-            console.error("Error upserting record:", e);
-          }
+
+          await prisma.$executeRaw(query);
+        } catch (e) {
+          console.error("Error upserting records:", e);
         }
       }
 

@@ -1,4 +1,5 @@
 import HyperExpress from "hyper-express";
+import { Prisma } from "@prisma/client";
 import prisma from "../utils/prisma";
 
 async function fetchSyncData(
@@ -144,21 +145,24 @@ function setupSyncEndpoints(server: HyperExpress.Server) {
       const now = new Date();
       // --- 1. Handle Records Mutation (Upsert with Raw SQL) ---
       if (recordsToSync.length > 0) {
-        for (const record of recordsToSync) {
-          if (
-            !record.mangaId ||
-            !record.pluginId ||
-            !record.datetime ||
-            record.page === undefined
-          )
-            continue;
+        const validRecords = recordsToSync.filter(
+          (record: any) =>
+            record.mangaId &&
+            record.pluginId &&
+            record.datetime &&
+            record.page !== undefined,
+        );
 
+        if (validRecords.length > 0) {
           try {
-            const date = new Date(record.datetime);
+            const valueTuples = validRecords.map((record: any) => {
+              const date = new Date(record.datetime);
+              return Prisma.sql`(${record.mangaId}, ${record.pluginId}, ${userId}, ${date}, ${record.chapterId ?? null}, ${record.chapterTitle ?? null}, ${record.page}, ${now})`;
+            });
 
-            await prisma.$executeRaw`
+            const query = Prisma.sql`
               INSERT INTO "Record" ("mangaId", "pluginId", "userId", "datetime", "chapterId", "chapterTitle", "page", "updatedAt")
-              VALUES (${record.mangaId}, ${record.pluginId}, ${userId}, ${date}, ${record.chapterId}, ${record.chapterTitle}, ${record.page}, ${now})
+              VALUES ${Prisma.join(valueTuples)}
               ON CONFLICT ("mangaId", "pluginId", "userId")
               DO UPDATE SET
                 "datetime" = excluded."datetime",
@@ -168,31 +172,35 @@ function setupSyncEndpoints(server: HyperExpress.Server) {
                 "updatedAt" = excluded."updatedAt"
               WHERE excluded."datetime" > "Record"."datetime"
             `;
+
+            await prisma.$executeRaw(query);
           } catch (e) {
-            console.error("Error upserting record:", e);
+            console.error("Error upserting records:", e);
           }
         }
       }
 
       // --- 2. Handle Saveds Mutation (Upsert with Raw SQL) ---
       if (savedsToSync.length > 0) {
-        for (const item of savedsToSync) {
-          if (
-            !item.mangaId ||
-            !item.pluginId ||
-            !item.datetime ||
-            item.updates === undefined ||
-            item.latestChapter === undefined
-          ) {
-            continue;
-          }
+        const validSaveds = savedsToSync.filter(
+          (item: any) =>
+            item.mangaId &&
+            item.pluginId &&
+            item.datetime &&
+            item.updates !== undefined &&
+            item.latestChapter !== undefined,
+        );
 
+        if (validSaveds.length > 0) {
           try {
-            const newDate = new Date(item.datetime);
+            const valueTuples = validSaveds.map((item: any) => {
+              const newDate = new Date(item.datetime);
+              return Prisma.sql`(${item.mangaId}, ${item.pluginId}, ${userId}, ${newDate}, ${item.updates}, ${item.latestChapter}, false, ${now})`;
+            });
 
-            await prisma.$executeRaw`
+            const query = Prisma.sql`
               INSERT INTO "Saved" ("mangaId", "pluginId", "userId", "datetime", "updates", "latestChapter", "isDeleted", "updatedAt")
-              VALUES (${item.mangaId}, ${item.pluginId}, ${userId}, ${newDate}, ${item.updates}, ${item.latestChapter}, false, ${now})
+              VALUES ${Prisma.join(valueTuples)}
               ON CONFLICT ("mangaId", "pluginId", "userId")
               DO UPDATE SET
                 "datetime" = excluded."datetime",
@@ -202,6 +210,8 @@ function setupSyncEndpoints(server: HyperExpress.Server) {
                 "updatedAt" = excluded."updatedAt"
               WHERE excluded."datetime" > "Saved"."datetime"
             `;
+
+            await prisma.$executeRaw(query);
           } catch (e) {
             console.error("Error upserting saved:", e);
           }

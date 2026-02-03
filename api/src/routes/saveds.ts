@@ -274,78 +274,39 @@ function setupSavedsEndpoints(server: HyperExpress.Server) {
         return response.status(200).json({ message: "No items to add" });
       }
 
-      const operations = [];
-      const keys = items.map((i) => ({
-        mangaId: i.mangaId,
-        pluginId: i.pluginId,
-      }));
-
-      // optimize by fetching existing ones first
-      const existingRecords = await prisma.saved.findMany({
-        where: {
-          userId,
-          OR: keys,
-        },
-      });
-
-      const existingMap = new Map(
-        existingRecords.map((r) => [`${r.mangaId}|${r.pluginId}`, r]),
-      );
-
-      for (const item of items) {
-        if (
-          !item.mangaId ||
-          !item.pluginId ||
-          !item.datetime ||
-          item.updates === undefined ||
-          item.latestChapter === undefined
-        ) {
-          continue; // Skip invalid items or return error? Skipping is safer for batch.
-        }
-
-        const key = `${item.mangaId}|${item.pluginId}`;
-        const existing = existingMap.get(key);
-        const newDate = new Date(item.datetime);
-
-        if (existing) {
-          if (newDate > existing.datetime) {
-            operations.push(
-              prisma.saved.update({
-                where: {
-                  mangaId_pluginId_userId: {
-                    mangaId: item.mangaId,
-                    pluginId: item.pluginId,
-                    userId,
-                  },
-                },
-                data: {
-                  datetime: newDate,
-                  updates: item.updates,
-                  latestChapter: item.latestChapter,
-                  isDeleted: false,
-                },
-              }),
-            );
+      const now = new Date();
+      // Handle Saveds Mutation (Upsert with Raw SQL)
+      if (items.length > 0) {
+        for (const item of items) {
+          if (
+            !item.mangaId ||
+            !item.pluginId ||
+            !item.datetime ||
+            item.updates === undefined ||
+            item.latestChapter === undefined
+          ) {
+            continue;
           }
-        } else {
-          operations.push(
-            prisma.saved.create({
-              data: {
-                mangaId: item.mangaId,
-                pluginId: item.pluginId,
-                userId,
-                datetime: newDate,
-                updates: item.updates,
-                latestChapter: item.latestChapter,
-                isDeleted: false,
-              },
-            }),
-          );
-        }
-      }
 
-      if (operations.length > 0) {
-        await prisma.$transaction(operations);
+          try {
+            const newDate = new Date(item.datetime);
+
+            await prisma.$executeRaw`
+              INSERT INTO "Saved" ("mangaId", "pluginId", "userId", "datetime", "updates", "latestChapter", "isDeleted", "updatedAt")
+              VALUES (${item.mangaId}, ${item.pluginId}, ${userId}, ${newDate}, ${item.updates}, ${item.latestChapter}, false, ${now})
+              ON CONFLICT ("mangaId", "pluginId", "userId")
+              DO UPDATE SET
+                "datetime" = excluded."datetime",
+                "updates" = excluded."updates",
+                "latestChapter" = excluded."latestChapter",
+                "isDeleted" = excluded."isDeleted",
+                "updatedAt" = excluded."updatedAt"
+              WHERE excluded."datetime" > "Saved"."datetime"
+            `;
+          } catch (e) {
+            console.error("Error upserting saved:", e);
+          }
+        }
       }
 
       response.status(200).json({ message: "Items processed successfully" });

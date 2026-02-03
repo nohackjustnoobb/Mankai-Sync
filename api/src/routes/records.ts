@@ -90,84 +90,34 @@ function setupRecordsEndpoints(server: HyperExpress.Server) {
         }
       }
 
-      // Fetch all relevant records in a single query
-      const keys = records.map((r) => ({
-        mangaId: r.mangaId,
-        pluginId: r.pluginId,
-      }));
+      const now = new Date();
+      // Handle Records Mutation (Upsert with Raw SQL)
+      if (records.length > 0) {
+        for (const record of records) {
+          try {
+            const date = new Date(record.datetime);
 
-      const storedRecords = await prisma.record.findMany({
-        where: {
-          userId,
-          OR: keys,
-        },
-      });
-
-      // Create a map for quick lookup
-      const storedMap = new Map(
-        storedRecords.map((r) => [`${r.mangaId}|${r.pluginId}`, r]),
-      );
-
-      // Determine which items need to be created vs updated
-      const toCreate = [];
-      const toUpdate = [];
-
-      for (const record of records) {
-        const key = `${record.mangaId}|${record.pluginId}`;
-        const stored = storedMap.get(key);
-        const date = new Date(record.datetime);
-
-        if (!stored) {
-          toCreate.push({
-            userId,
-            mangaId: record.mangaId,
-            pluginId: record.pluginId,
-            datetime: date,
-            chapterId: record.chapterId,
-            chapterTitle: record.chapterTitle,
-            page: record.page,
-          });
-        } else if (date.getTime() > stored.datetime.getTime()) {
-          toUpdate.push({
-            where: {
-              mangaId_pluginId_userId: {
-                userId,
-                mangaId: record.mangaId,
-                pluginId: record.pluginId,
-              },
-            },
-            data: {
-              datetime: date,
-              chapterId: record.chapterId,
-              chapterTitle: record.chapterTitle,
-              page: record.page,
-            },
-          });
+            await prisma.$executeRaw`
+              INSERT INTO "Record" ("mangaId", "pluginId", "userId", "datetime", "chapterId", "chapterTitle", "page", "updatedAt")
+              VALUES (${record.mangaId}, ${record.pluginId}, ${userId}, ${date}, ${record.chapterId}, ${record.chapterTitle}, ${record.page}, ${now})
+              ON CONFLICT ("mangaId", "pluginId", "userId")
+              DO UPDATE SET
+                "datetime" = excluded."datetime",
+                "chapterId" = excluded."chapterId",
+                "chapterTitle" = excluded."chapterTitle",
+                "page" = excluded."page",
+                "updatedAt" = excluded."updatedAt"
+              WHERE excluded."datetime" > "Record"."datetime"
+            `;
+          } catch (e) {
+            console.error("Error upserting record:", e);
+          }
         }
       }
 
-      // Batch create and update in a transaction
-      const operations = [
-        ...toCreate.map((data) => prisma.record.create({ data })),
-        ...toUpdate.map((update) => prisma.record.update(update)),
-      ];
-
-      const results =
-        operations.length > 0 ? await prisma.$transaction(operations) : [];
-
-      // Build final result set
-      const resultMap = new Map(
-        results.map((r) => [`${r.mangaId}|${r.pluginId}`, r]),
-      );
-
-      const allResults = records.map((r) => {
-        const key = `${r.mangaId}|${r.pluginId}`;
-        return resultMap.get(key) || storedMap.get(key);
-      });
-
       response.status(200).json({
         message: "Record items processed successfully",
-        records: allResults,
+        records: records,
       });
     } catch (error) {
       console.error(error);

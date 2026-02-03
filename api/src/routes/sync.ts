@@ -141,25 +141,9 @@ function setupSyncEndpoints(server: HyperExpress.Server) {
       const recordsToSync = Array.isArray(body.records) ? body.records : [];
       const savedsToSync = Array.isArray(body.saveds) ? body.saveds : [];
 
-      // --- 1. Handle Records Mutation (Upsert) ---
+      const now = new Date();
+      // --- 1. Handle Records Mutation (Upsert with Raw SQL) ---
       if (recordsToSync.length > 0) {
-        const keys = recordsToSync.map((r: any) => ({
-          mangaId: r.mangaId,
-          pluginId: r.pluginId,
-        }));
-
-        const existingRecords = await prisma.record.findMany({
-          where: {
-            userId,
-            OR: keys,
-          },
-        });
-
-        const existingMap = new Map(
-          existingRecords.map((r) => [`${r.mangaId}|${r.pluginId}`, r]),
-        );
-
-        const recordOps = [];
         for (const record of recordsToSync) {
           if (
             !record.mangaId ||
@@ -169,71 +153,29 @@ function setupSyncEndpoints(server: HyperExpress.Server) {
           )
             continue;
 
-          const key = `${record.mangaId}|${record.pluginId}`;
-          const stored = existingMap.get(key);
-          const date = new Date(record.datetime);
+          try {
+            const date = new Date(record.datetime);
 
-          if (stored) {
-            if (date.getTime() > stored.datetime.getTime()) {
-              recordOps.push(
-                prisma.record.update({
-                  where: {
-                    mangaId_pluginId_userId: {
-                      userId,
-                      mangaId: record.mangaId,
-                      pluginId: record.pluginId,
-                    },
-                  },
-                  data: {
-                    datetime: date,
-                    chapterId: record.chapterId,
-                    chapterTitle: record.chapterTitle,
-                    page: record.page,
-                  },
-                }),
-              );
-            }
-          } else {
-            recordOps.push(
-              prisma.record.create({
-                data: {
-                  userId,
-                  mangaId: record.mangaId,
-                  pluginId: record.pluginId,
-                  datetime: date,
-                  chapterId: record.chapterId,
-                  chapterTitle: record.chapterTitle,
-                  page: record.page,
-                },
-              }),
-            );
+            await prisma.$executeRaw`
+              INSERT INTO "Record" ("mangaId", "pluginId", "userId", "datetime", "chapterId", "chapterTitle", "page", "updatedAt")
+              VALUES (${record.mangaId}, ${record.pluginId}, ${userId}, ${date}, ${record.chapterId}, ${record.chapterTitle}, ${record.page}, ${now})
+              ON CONFLICT ("mangaId", "pluginId", "userId")
+              DO UPDATE SET
+                "datetime" = excluded."datetime",
+                "chapterId" = excluded."chapterId",
+                "chapterTitle" = excluded."chapterTitle",
+                "page" = excluded."page",
+                "updatedAt" = excluded."updatedAt"
+              WHERE excluded."datetime" > "Record"."datetime"
+            `;
+          } catch (e) {
+            console.error("Error upserting record:", e);
           }
-        }
-
-        if (recordOps.length > 0) {
-          await prisma.$transaction(recordOps);
         }
       }
 
-      // --- 2. Handle Saveds Mutation (Upsert) ---
+      // --- 2. Handle Saveds Mutation (Upsert with Raw SQL) ---
       if (savedsToSync.length > 0) {
-        const keys = savedsToSync.map((s: any) => ({
-          mangaId: s.mangaId,
-          pluginId: s.pluginId,
-        }));
-
-        const existingSaveds = await prisma.saved.findMany({
-          where: {
-            userId,
-            OR: keys,
-          },
-        });
-
-        const existingMap = new Map(
-          existingSaveds.map((s) => [`${s.mangaId}|${s.pluginId}`, s]),
-        );
-
-        const savedOps = [];
         for (const item of savedsToSync) {
           if (
             !item.mangaId ||
@@ -245,49 +187,24 @@ function setupSyncEndpoints(server: HyperExpress.Server) {
             continue;
           }
 
-          const key = `${item.mangaId}|${item.pluginId}`;
-          const existing = existingMap.get(key);
-          const newDate = new Date(item.datetime);
+          try {
+            const newDate = new Date(item.datetime);
 
-          if (existing) {
-            if (newDate > existing.datetime) {
-              savedOps.push(
-                prisma.saved.update({
-                  where: {
-                    mangaId_pluginId_userId: {
-                      userId,
-                      mangaId: item.mangaId,
-                      pluginId: item.pluginId,
-                    },
-                  },
-                  data: {
-                    datetime: newDate,
-                    updates: item.updates,
-                    latestChapter: item.latestChapter,
-                    isDeleted: false,
-                  },
-                }),
-              );
-            }
-          } else {
-            savedOps.push(
-              prisma.saved.create({
-                data: {
-                  mangaId: item.mangaId,
-                  pluginId: item.pluginId,
-                  userId,
-                  datetime: newDate,
-                  updates: item.updates,
-                  latestChapter: item.latestChapter,
-                  isDeleted: false,
-                },
-              }),
-            );
+            await prisma.$executeRaw`
+              INSERT INTO "Saved" ("mangaId", "pluginId", "userId", "datetime", "updates", "latestChapter", "isDeleted", "updatedAt")
+              VALUES (${item.mangaId}, ${item.pluginId}, ${userId}, ${newDate}, ${item.updates}, ${item.latestChapter}, false, ${now})
+              ON CONFLICT ("mangaId", "pluginId", "userId")
+              DO UPDATE SET
+                "datetime" = excluded."datetime",
+                "updates" = excluded."updates",
+                "latestChapter" = excluded."latestChapter",
+                "isDeleted" = excluded."isDeleted",
+                "updatedAt" = excluded."updatedAt"
+              WHERE excluded."datetime" > "Saved"."datetime"
+            `;
+          } catch (e) {
+            console.error("Error upserting saved:", e);
           }
-        }
-
-        if (savedOps.length > 0) {
-          await prisma.$transaction(savedOps);
         }
       }
 

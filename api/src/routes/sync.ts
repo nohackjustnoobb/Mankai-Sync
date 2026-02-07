@@ -150,6 +150,7 @@ function setupSyncEndpoints(server: HyperExpress.Server) {
             record.mangaId &&
             record.pluginId &&
             record.datetime &&
+            record.chapterId &&
             record.page !== undefined,
         );
 
@@ -157,7 +158,7 @@ function setupSyncEndpoints(server: HyperExpress.Server) {
           try {
             const valueTuples = validRecords.map((record: any) => {
               const date = new Date(record.datetime);
-              return Prisma.sql`(${record.mangaId}, ${record.pluginId}, ${userId}, ${date}, ${record.chapterId ?? null}, ${record.chapterTitle ?? null}, ${record.page}, ${now})`;
+              return Prisma.sql`(${record.mangaId}, ${record.pluginId}, ${userId}, ${date}, ${record.chapterId}, ${record.chapterTitle ?? null}, ${record.page}, ${now})`;
             });
 
             const query = Prisma.sql`

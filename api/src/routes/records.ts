@@ -71,11 +71,12 @@ function setupRecordsEndpoints(server: HyperExpress.Server) {
 
       // Validate all items first
       for (const record of records) {
-        const { mangaId, pluginId, datetime, page } = record;
+        const { mangaId, pluginId, datetime, chapterId, page } = record;
         if (
           mangaId === undefined ||
           pluginId === undefined ||
           datetime === undefined ||
+          chapterId === undefined ||
           page === undefined
         ) {
           return response
@@ -97,7 +98,7 @@ function setupRecordsEndpoints(server: HyperExpress.Server) {
         try {
           const valueTuples = records.map((record: any) => {
             const date = new Date(record.datetime);
-            return Prisma.sql`(${record.mangaId}, ${record.pluginId}, ${userId}, ${date}, ${record.chapterId ?? null}, ${record.chapterTitle ?? null}, ${record.page}, ${now})`;
+            return Prisma.sql`(${record.mangaId}, ${record.pluginId}, ${userId}, ${date}, ${record.chapterId}, ${record.chapterTitle ?? null}, ${record.page}, ${now})`;
           });
 
           const query = Prisma.sql`

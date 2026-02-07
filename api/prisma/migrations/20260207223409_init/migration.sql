@@ -12,10 +12,9 @@ CREATE TABLE "Record" (
     "pluginId" TEXT NOT NULL,
     "userId" INTEGER NOT NULL,
     "datetime" DATETIME NOT NULL,
-    "chapterId" TEXT,
+    "chapterId" TEXT NOT NULL,
     "chapterTitle" TEXT,
     "page" INTEGER NOT NULL,
-    "isDeleted" BOOLEAN NOT NULL DEFAULT false,
     "updatedAt" DATETIME NOT NULL,
 
     PRIMARY KEY ("mangaId", "pluginId", "userId"),

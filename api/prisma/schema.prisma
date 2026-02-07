@@ -24,7 +24,7 @@ model Record {
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   datetime     DateTime
-  chapterId    String?
+  chapterId    String
   chapterTitle String?
   page         Int
   updatedAt    DateTime @updatedAt

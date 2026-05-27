@@ -61,16 +61,28 @@ server.get("/static/*", (request, response) => {
   const fileParts = file.path.split(".");
   const extension = fileParts[fileParts.length - 1];
 
-  const content = file.content;
-  return response.status(200).type(extension).send(content);
+  response.status(200).type(extension);
+
+  if (file.cached) {
+    return response.send(file.content);
+  } else {
+    const readable = file.stream();
+    return readable.pipe(response);
+  }
 });
 
 server.get("/", (_, response) => {
   const file = staticAssets.get("index.html");
   if (file === undefined) return response.status(404).send();
 
-  const content = file.content;
-  return response.status(200).type("html").send(content);
+  response.status(200).type("html");
+
+  if (file.cached) {
+    return response.send(file.content);
+  } else {
+    const readable = file.stream();
+    return readable.pipe(response);
+  }
 });
 
 // Api endpoint
